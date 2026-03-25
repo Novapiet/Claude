@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BudgetFlow">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>BudgetFlow</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <h1>BudgetFlow</h1>
+      <button id="settingsBtn" class="icon-btn" aria-label="Settings">&#9881;</button>
+    </header>
+
+    <!-- Balance Overview -->
+    <section class="balance-card">
+      <p class="balance-label">Current Balance</p>
+      <h2 class="balance-amount" id="balanceAmount">$0.00</h2>
+      <div class="balance-row">
+        <div class="balance-item income">
+          <span class="arrow">&#9650;</span>
+          <div>
+            <p class="item-label">Income</p>
+            <p class="item-amount" id="totalIncome">$0.00</p>
+          </div>
+        </div>
+        <div class="balance-item expense">
+          <span class="arrow">&#9660;</span>
+          <div>
+            <p class="item-label">Expenses</p>
+            <p class="item-amount" id="totalExpenses">$0.00</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="transactions">Transactions</button>
+      <button class="tab" data-tab="budgets">Budgets</button>
+      <button class="tab" data-tab="analytics">Analytics</button>
+    </nav>
+
+    <!-- Transactions Tab -->
+    <section class="tab-content active" id="tab-transactions">
+      <div class="filter-row">
+        <select id="filterCategory">
+          <option value="all">All Categories</option>
+        </select>
+        <select id="filterMonth">
+          <option value="all">All Time</option>
+        </select>
+      </div>
+      <div class="transactions-list" id="transactionsList">
+        <p class="empty-state">No transactions yet. Tap + to add one.</p>
+      </div>
+    </section>
+
+    <!-- Budgets Tab -->
+    <section class="tab-content" id="tab-budgets">
+      <div class="budgets-list" id="budgetsList">
+        <p class="empty-state">No budgets set. Tap + to create one.</p>
+      </div>
+    </section>
+
+    <!-- Analytics Tab -->
+    <section class="tab-content" id="tab-analytics">
+      <div class="analytics-period">
+        <button class="period-btn active" data-period="month">This Month</button>
+        <button class="period-btn" data-period="year">This Year</button>
+        <button class="period-btn" data-period="all">All Time</button>
+      </div>
+      <div class="chart-container">
+        <canvas id="expenseChart"></canvas>
+      </div>
+      <div class="chart-container">
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div class="analytics-summary" id="analyticsSummary"></div>
+    </section>
+
+    <!-- FAB -->
+    <button class="fab" id="addBtn" aria-label="Add transaction">+</button>
+
+    <!-- Add Transaction Modal -->
+    <div class="modal-overlay" id="addModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="modalTitle">Add Transaction</h3>
+          <button class="close-btn" id="closeModal">&times;</button>
+        </div>
+        <form id="transactionForm">
+          <input type="hidden" id="editId" value="">
+          <div class="form-group">
+            <label>Type</label>
+            <div class="type-toggle">
+              <button type="button" class="type-btn active" data-type="expense">Expense</button>
+              <button type="button" class="type-btn" data-type="income">Income</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="amount">Amount</label>
+            <input type="number" id="amount" step="0.01" min="0.01" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label for="description">Description</label>
+            <input type="text" id="description" placeholder="e.g. Groceries" required>
+          </div>
+          <div class="form-group">
+            <label for="category">Category</label>
+            <select id="category" required></select>
+          </div>
+          <div class="form-group">
+            <label for="date">Date</label>
+            <input type="date" id="date" required>
+          </div>
+          <button type="submit" class="submit-btn">Save Transaction</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Budget Modal -->
+    <div class="modal-overlay" id="budgetModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Set Budget</h3>
+          <button class="close-btn" id="closeBudgetModal">&times;</button>
+        </div>
+        <form id="budgetForm">
+          <div class="form-group">
+            <label for="budgetCategory">Category</label>
+            <select id="budgetCategory" required></select>
+          </div>
+          <div class="form-group">
+            <label for="budgetAmount">Monthly Limit</label>
+            <input type="number" id="budgetAmount" step="0.01" min="1" placeholder="0.00" required>
+          </div>
+          <button type="submit" class="submit-btn">Save Budget</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Settings</h3>
+          <button class="close-btn" id="closeSettingsModal">&times;</button>
+        </div>
+        <div class="settings-content">
+          <div class="form-group">
+            <label for="currencySelect">Currency</label>
+            <select id="currencySelect">
+              <option value="USD">$ USD</option>
+              <option value="EUR">&#8364; EUR</option>
+              <option value="GBP">&#163; GBP</option>
+              <option value="JPY">&#165; JPY</option>
+              <option value="CAD">$ CAD</option>
+              <option value="AUD">$ AUD</option>
+            </select>
+          </div>
+          <button class="submit-btn danger" id="exportDataBtn">Export Data (JSON)</button>
+          <button class="submit-btn" id="importDataBtn">Import Data</button>
+          <input type="file" id="importFile" accept=".json" style="display:none">
+          <button class="submit-btn danger" id="clearDataBtn">Clear All Data</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
