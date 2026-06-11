@@ -4,7 +4,8 @@ A small app for two parents to plan who handles daycare **drop-off (morning)** a
 **pickup (evening)** each day. Works on any phone, installs as an app, works offline,
 and syncs between both of you through a private GitHub repo.
 
-**Open the app:** https://novapiet.github.io/claude/daycare/
+**Open the app:** https://novapiet.github.io/Claude/daycare/
+(note the capital **C** — the address is case-sensitive)
 
 ## How it works
 
