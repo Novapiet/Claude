@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Daycare Duty">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>Daycare Duty</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- PIN Lock Screen -->
+  <div id="lockScreen" class="lock-screen hidden">
+    <div class="lock-content">
+      <div class="lock-icon">&#128274;</div>
+      <h2>Daycare Duty</h2>
+      <p id="lockHint">Enter your family PIN</p>
+      <div class="pin-dots" id="pinDots"></div>
+      <div class="pin-pad" id="pinPad"></div>
+    </div>
+  </div>
+
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <h1>Daycare Duty</h1>
+      <div class="header-actions">
+        <span class="sync-dot" id="syncDot" title="Sync status"></span>
+        <button id="settingsBtn" class="icon-btn" aria-label="Settings">&#9881;</button>
+      </div>
+    </header>
+
+    <!-- Parent legend -->
+    <div class="legend" id="legend"></div>
+
+    <!-- Month balance -->
+    <section class="balance-card" id="balanceCard"></section>
+
+    <!-- Week navigation -->
+    <nav class="week-nav">
+      <button class="nav-btn" id="prevWeek" aria-label="Previous week">&#8249;</button>
+      <button class="week-label" id="weekLabel" title="Jump to today"></button>
+      <button class="nav-btn" id="nextWeek" aria-label="Next week">&#8250;</button>
+    </nav>
+
+    <!-- Day list -->
+    <section class="days" id="daysList"></section>
+
+    <p class="tap-hint">Tap a slot to cycle: &#8203;you &#8594; them &#8594; nobody &#8594; usual schedule</p>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Settings</h3>
+          <button class="close-btn" id="closeSettingsModal">&times;</button>
+        </div>
+        <div class="settings-content">
+
+          <h4 class="section-title">Parents</h4>
+          <div class="form-group parent-row">
+            <span class="color-chip chip-p1"></span>
+            <input type="text" id="nameP1" maxlength="14" placeholder="Parent 1">
+          </div>
+          <div class="form-group parent-row">
+            <span class="color-chip chip-p2"></span>
+            <input type="text" id="nameP2" maxlength="14" placeholder="Parent 2">
+          </div>
+
+          <h4 class="section-title">Typical week</h4>
+          <p class="section-hint">Your usual schedule. Days auto-fill from this; tap slots on the calendar to override.</p>
+          <div class="defaults-grid" id="defaultsGrid"></div>
+
+          <h4 class="section-title">Weekends</h4>
+          <label class="toggle-row">
+            <input type="checkbox" id="showWeekends">
+            <span>Show Saturday &amp; Sunday</span>
+          </label>
+
+          <h4 class="section-title">Family PIN</h4>
+          <p class="section-hint">Locks the app on this and your partner's phone.</p>
+          <button class="submit-btn secondary" id="setPinBtn">Set PIN</button>
+          <button class="submit-btn danger hidden" id="removePinBtn">Remove PIN</button>
+
+          <h4 class="section-title">Sync with your partner</h4>
+          <p class="section-hint">
+            Syncs through a <strong>private</strong> GitHub repo so only you two can read it.
+            See the setup guide linked below.
+          </p>
+          <div class="form-group">
+            <label for="syncRepo">Private repo (owner/name)</label>
+            <input type="text" id="syncRepo" placeholder="e.g. novapiet/daycare-data" autocapitalize="off" autocorrect="off">
+          </div>
+          <div class="form-group">
+            <label for="syncToken">Fine-grained access token</label>
+            <input type="password" id="syncToken" placeholder="github_pat_..." autocapitalize="off" autocorrect="off">
+          </div>
+          <button class="submit-btn" id="connectSyncBtn">Connect &amp; Sync</button>
+          <button class="submit-btn secondary hidden" id="syncNowBtn">Sync Now</button>
+          <button class="submit-btn danger hidden" id="disconnectSyncBtn">Disconnect Sync</button>
+          <p class="sync-status" id="syncStatus"></p>
+          <p class="section-hint">
+            <a href="https://github.com/novapiet/claude/blob/main/daycare/README.md" target="_blank" rel="noopener">Setup guide &#8599;</a>
+          </p>
+
+          <h4 class="section-title">Backup</h4>
+          <button class="submit-btn secondary" id="exportDataBtn">Export Data (JSON)</button>
+          <button class="submit-btn secondary" id="importDataBtn">Import Data</button>
+          <input type="file" id="importFile" accept=".json" style="display:none">
+        </div>
+      </div>
+    </div>
+
+    <!-- PIN setup modal -->
+    <div class="modal-overlay" id="pinModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="pinModalTitle">Set Family PIN</h3>
+          <button class="close-btn" id="closePinModal">&times;</button>
+        </div>
+        <form id="pinForm">
+          <div class="form-group">
+            <label for="pinInput">New PIN (4&#8211;6 digits)</label>
+            <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]{4,6}" minlength="4" maxlength="6" required>
+          </div>
+          <div class="form-group">
+            <label for="pinConfirm">Confirm PIN</label>
+            <input type="password" id="pinConfirm" inputmode="numeric" pattern="[0-9]{4,6}" minlength="4" maxlength="6" required>
+          </div>
+          <button type="submit" class="submit-btn">Save PIN</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
