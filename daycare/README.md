@@ -48,10 +48,16 @@ Changes sync automatically a couple of seconds after you make them, and whenever
 the app is opened. If you're both editing offline, the most recent change to each
 individual slot wins.
 
-### 4. (Optional) Set a family PIN
+### 4. (Optional) Set a family PIN and two-factor codes
 
 In Settings → **Family PIN**. The app then asks for the PIN whenever it's opened —
 handy if the kids get hold of your phone. The PIN syncs, so it's the same on both phones.
+
+For an extra layer, enable **2FA** in Settings: after the PIN, the app also asks for a
+6-digit code from an authenticator app (Google Authenticator, 1Password, iCloud
+Keychain, …). When enabling, tap "Open in authenticator app" (or type the setup key in
+manually), then confirm with the current code. On the second phone, once sync has run,
+use **Show setup key** in Settings to add the same key to that phone's authenticator.
 
 ## Install on your phone
 

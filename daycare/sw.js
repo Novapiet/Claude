@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daycareduty-v1';
+const CACHE_NAME = 'daycareduty-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -26,8 +26,16 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   // Never cache GitHub API sync traffic
   if (e.request.url.includes('api.github.com')) return;
+  if (e.request.method !== 'GET') return;
 
+  // Network-first so app updates reach installed PWAs; cache fallback for offline
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request).then(res => {
+      if (res.ok) {
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+      }
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });
