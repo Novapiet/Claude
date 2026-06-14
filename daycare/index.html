@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <title>Daycare Duty</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <!-- PIN Lock Screen -->
@@ -36,6 +36,9 @@
 
     <!-- Parent legend -->
     <div class="legend" id="legend"></div>
+
+    <!-- Unassigned-slot warning -->
+    <button class="alert-banner hidden" id="alertBanner"></button>
 
     <!-- Month balance -->
     <section class="balance-card" id="balanceCard"></section>
@@ -115,6 +118,24 @@
       </div>
     </div>
 
+    <!-- Note modal -->
+    <div class="modal-overlay" id="noteModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="noteModalTitle">Note</h3>
+          <button class="close-btn" id="closeNoteModal">&times;</button>
+        </div>
+        <form id="noteForm">
+          <div class="form-group">
+            <label for="noteText">Note for this day</label>
+            <textarea id="noteText" rows="3" maxlength="200" placeholder="e.g. early pickup 4pm — dentist"></textarea>
+          </div>
+          <button type="submit" class="submit-btn">Save note</button>
+          <button type="button" class="submit-btn danger hidden" id="removeNoteBtn">Remove note</button>
+        </form>
+      </div>
+    </div>
+
     <!-- PIN setup modal -->
     <div class="modal-overlay" id="pinModal">
       <div class="modal">
@@ -137,6 +158,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

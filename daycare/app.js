@@ -15,7 +15,7 @@ const CYCLE = ['auto', 'p1', 'p2', 'none'];
 
 let state = loadState();
 let syncCfg = loadSyncCfg();
-let weekStart = mondayOf(new Date());
+let weekStart = currentWeekStart();
 let syncTimer = null;
 let syncing = false;
 
@@ -40,6 +40,7 @@ function defaultState() {
       ts: 0,
     },
     slots: {}, // 'YYYY-MM-DD' -> { am: {owner, ts}, pm: {owner, ts} }
+    notes: {}, // 'YYYY-MM-DD' -> { text, ts }  (empty text = tombstone)
   };
 }
 
@@ -54,6 +55,7 @@ function loadState() {
           parents: { ...base.settings.parents, ...(parsed.settings?.parents || {}) },
           defaults: { ...base.settings.defaults, ...(parsed.settings?.defaults || {}) } },
         slots: parsed.slots || {},
+        notes: parsed.notes || {},
       };
     }
   } catch (e) { /* fall through to fresh state */ }
@@ -91,6 +93,17 @@ function mondayOf(d) {
   return out;
 }
 
+// The week to land on for "today": on a weekend with weekends hidden, roll
+// forward to the upcoming work week rather than showing the week that just ended.
+function currentWeekStart() {
+  const today = new Date();
+  const dow = today.getDay();
+  if (!state.settings.showWeekends && (dow === 0 || dow === 6)) {
+    return mondayOf(addDays(today, dow === 0 ? 1 : 2));
+  }
+  return mondayOf(today);
+}
+
 function addDays(d, n) {
   const out = new Date(d);
   out.setDate(out.getDate() + n);
@@ -119,6 +132,18 @@ function cycleSlot(dateKey, slot) {
   queueSync();
 }
 
+function noteText(dateKey) {
+  return state.notes[dateKey]?.text || '';
+}
+
+function setNote(dateKey, text) {
+  // Store empty text as a tombstone so removals sync instead of being re-added on merge.
+  state.notes[dateKey] = { text: text.trim(), ts: Date.now() };
+  saveState();
+  render();
+  queueSync();
+}
+
 // ---------- Rendering ----------
 
 function parentName(id) {
@@ -128,9 +153,38 @@ function parentName(id) {
 
 function render() {
   renderLegend();
+  renderAlerts();
   renderBalance();
   renderWeek();
 }
+
+// Surface upcoming slots that nobody owns, so a drop-off/pickup never slips.
+function renderAlerts() {
+  const banner = document.getElementById('alertBanner');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const gaps = [];
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(today, i);
+    if (!state.settings.showWeekends && (d.getDay() === 0 || d.getDay() === 6)) continue;
+    for (const [slot, label] of [['am', 'drop-off'], ['pm', 'pickup']]) {
+      if (effectiveOwner(d, slot) === 'none') {
+        const when = i === 0 ? 'today' : i === 1 ? 'tomorrow' : WEEKDAY_NAMES[d.getDay()].slice(0, 3);
+        gaps.push(`${when} ${label}`);
+      }
+    }
+  }
+  if (!gaps.length) {
+    banner.classList.add('hidden');
+    banner.innerHTML = '';
+    return;
+  }
+  const shown = gaps.slice(0, 4).join(', ');
+  const more = gaps.length > 4 ? ` +${gaps.length - 4} more` : '';
+  banner.innerHTML = `<span class="alert-icon">&#9888;</span> Nobody assigned: ${esc(shown)}${more}`;
+  banner.classList.remove('hidden');
+}
+
 
 function renderLegend() {
   const el = document.getElementById('legend');
@@ -214,6 +268,16 @@ function renderWeek() {
       row.appendChild(btn);
     }
     card.appendChild(row);
+
+    const note = noteText(key);
+    const noteEl = document.createElement('button');
+    noteEl.className = note ? 'day-note has-note' : 'day-note';
+    noteEl.innerHTML = note
+      ? `<span class="note-icon">&#128221;</span> ${esc(note)}`
+      : `<span class="note-icon">&#43;</span> Add note`;
+    noteEl.addEventListener('click', () => openNote(key, d));
+    card.appendChild(noteEl);
+
     list.appendChild(card);
   }
 }
@@ -222,6 +286,20 @@ function esc(s) {
   const div = document.createElement('div');
   div.textContent = s ?? '';
   return div.innerHTML;
+}
+
+// ---------- Notes ----------
+
+let noteEditKey = null;
+
+function openNote(dateKey, date) {
+  noteEditKey = dateKey;
+  document.getElementById('noteModalTitle').textContent =
+    `${WEEKDAY_NAMES[date.getDay()]}, ${MONTH_NAMES[date.getMonth()].slice(0, 3)} ${date.getDate()}`;
+  document.getElementById('noteText').value = noteText(dateKey);
+  document.getElementById('removeNoteBtn').classList.toggle('hidden', !noteText(dateKey));
+  document.getElementById('noteModal').classList.add('open');
+  document.getElementById('noteText').focus();
 }
 
 // ---------- Settings ----------
@@ -412,6 +490,10 @@ function mergeRemote(remote) {
       }
     }
   }
+  for (const [date, note] of Object.entries(remote.notes || {})) {
+    const l = state.notes[date];
+    if (!l || (note.ts || 0) > (l.ts || 0)) state.notes[date] = note;
+  }
 }
 
 function queueSync() {
@@ -442,7 +524,7 @@ async function syncNow(interactive) {
       // push merged state
       const body = {
         message: 'Update daycare schedule',
-        content: b64encode(JSON.stringify({ settings: state.settings, slots: state.slots })),
+        content: b64encode(JSON.stringify({ settings: state.settings, slots: state.slots, notes: state.notes })),
       };
       if (sha) body.sha = sha;
       const put = await fetch(apiUrl(), {
@@ -497,7 +579,7 @@ function disconnectSync() {
 // ---------- Backup ----------
 
 function exportData() {
-  const blob = new Blob([JSON.stringify({ settings: state.settings, slots: state.slots }, null, 2)],
+  const blob = new Blob([JSON.stringify({ settings: state.settings, slots: state.slots, notes: state.notes }, null, 2)],
     { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -535,7 +617,10 @@ function init() {
     weekStart = addDays(weekStart, 7); render();
   });
   document.getElementById('weekLabel').addEventListener('click', () => {
-    weekStart = mondayOf(new Date()); render();
+    weekStart = currentWeekStart(); render();
+  });
+  document.getElementById('alertBanner').addEventListener('click', () => {
+    weekStart = currentWeekStart(); render();
   });
 
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
@@ -577,6 +662,20 @@ function init() {
     saveState();
     refreshPinButtons();
     queueSync();
+  });
+
+  // Notes
+  document.getElementById('closeNoteModal').addEventListener('click', () => {
+    document.getElementById('noteModal').classList.remove('open');
+  });
+  document.getElementById('noteForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (noteEditKey) setNote(noteEditKey, document.getElementById('noteText').value);
+    document.getElementById('noteModal').classList.remove('open');
+  });
+  document.getElementById('removeNoteBtn').addEventListener('click', () => {
+    if (noteEditKey) setNote(noteEditKey, '');
+    document.getElementById('noteModal').classList.remove('open');
   });
 
   // Sync
