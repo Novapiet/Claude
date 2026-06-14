@@ -86,13 +86,6 @@
           <button class="submit-btn secondary" id="setPinBtn">Set PIN</button>
           <button class="submit-btn danger hidden" id="removePinBtn">Remove PIN</button>
 
-          <h4 class="section-title">Two-factor code (2FA)</h4>
-          <p class="section-hint">After the PIN, also require a 6-digit code from an authenticator app
-            (Google Authenticator, 1Password, iCloud Keychain&hellip;). Both phones use the same key.</p>
-          <button class="submit-btn secondary" id="enableTotpBtn">Enable 2FA</button>
-          <button class="submit-btn secondary hidden" id="showTotpBtn">Show setup key</button>
-          <button class="submit-btn danger hidden" id="disableTotpBtn">Disable 2FA</button>
-
           <h4 class="section-title">Sync with your partner</h4>
           <p class="section-hint">
             Syncs through a <strong>private</strong> GitHub repo so only you two can read it.
@@ -119,29 +112,6 @@
           <button class="submit-btn secondary" id="importDataBtn">Import Data</button>
           <input type="file" id="importFile" accept=".json" style="display:none">
         </div>
-      </div>
-    </div>
-
-    <!-- 2FA setup modal -->
-    <div class="modal-overlay" id="totpModal">
-      <div class="modal">
-        <div class="modal-header">
-          <h3 id="totpModalTitle">Set up 2FA</h3>
-          <button class="close-btn" id="closeTotpModal">&times;</button>
-        </div>
-        <p class="section-hint">Add this key to your authenticator app. On this phone you can
-          tap the button below; on the other phone, type the key in manually or tap the same button there.</p>
-        <a class="submit-btn" id="otpauthLink" href="#">Open in authenticator app</a>
-        <div class="secret-box" id="totpSecretBox"></div>
-        <form id="totpForm">
-          <div class="form-group">
-            <label for="totpCodeInput">Enter the 6-digit code it shows</label>
-            <input type="text" id="totpCodeInput" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6"
-              autocomplete="one-time-code" required>
-          </div>
-          <button type="submit" class="submit-btn">Verify &amp; Enable</button>
-          <p class="sync-status" id="totpStatus"></p>
-        </form>
       </div>
     </div>
 

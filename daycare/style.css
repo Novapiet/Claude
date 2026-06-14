@@ -422,28 +422,6 @@ html, body {
   color: var(--danger);
 }
 
-a.submit-btn {
-  display: block;
-  text-align: center;
-  text-decoration: none;
-  box-sizing: border-box;
-}
-
-.secret-box {
-  background: var(--card-2);
-  border: 1px dashed var(--border);
-  border-radius: 9px;
-  padding: 12px;
-  margin-bottom: 14px;
-  text-align: center;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.95rem;
-  letter-spacing: 0.08em;
-  user-select: all;
-  -webkit-user-select: all;
-  word-break: break-all;
-}
-
 .sync-status {
   font-size: 0.8rem;
   color: var(--muted);
