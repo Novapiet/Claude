@@ -37,7 +37,6 @@ function defaultState() {
       },
       showWeekends: false,
       pinHash: null,
-      totpSecret: null,
       ts: 0,
     },
     slots: {}, // 'YYYY-MM-DD' -> { am: {owner, ts}, pm: {owner, ts} }
@@ -284,17 +283,12 @@ async function sha256Hex(str) {
 }
 
 function refreshPinButtons() {
-  const hasPin = !!state.settings.pinHash;
-  const hasTotp = !!state.settings.totpSecret;
-  document.getElementById('setPinBtn').textContent = hasPin ? 'Change PIN' : 'Set PIN';
-  document.getElementById('removePinBtn').classList.toggle('hidden', !hasPin);
-  document.getElementById('enableTotpBtn').classList.toggle('hidden', hasTotp);
-  document.getElementById('showTotpBtn').classList.toggle('hidden', !hasTotp);
-  document.getElementById('disableTotpBtn').classList.toggle('hidden', !hasTotp);
+  const has = !!state.settings.pinHash;
+  document.getElementById('setPinBtn').textContent = has ? 'Change PIN' : 'Set PIN';
+  document.getElementById('removePinBtn').classList.toggle('hidden', !has);
 }
 
 let pinEntry = '';
-let lockStage = 'pin'; // 'pin' then, if 2FA enabled, 'totp'
 
 function showLockScreen() {
   const pad = document.getElementById('pinPad');
@@ -308,145 +302,37 @@ function showLockScreen() {
     pad.appendChild(b);
   }
   pinEntry = '';
-  lockStage = 'pin';
   document.getElementById('lockHint').textContent = 'Enter your family PIN';
   renderPinDots();
   document.getElementById('lockScreen').classList.remove('hidden');
 }
 
 function renderPinDots() {
-  const expected = lockStage === 'totp' ? 6 : 4;
   document.getElementById('pinDots').innerHTML =
     pinEntry.split('').map(() => '<span class="pd fill"></span>').join('') +
-    Array(Math.max(0, expected - pinEntry.length)).fill('<span class="pd"></span>').join('');
-}
-
-function lockError(msg, fallback) {
-  const hint = document.getElementById('lockHint');
-  pinEntry = '';
-  renderPinDots();
-  hint.textContent = msg;
-  hint.classList.add('shake');
-  setTimeout(() => { hint.textContent = fallback; hint.classList.remove('shake'); }, 1800);
-}
-
-function unlock() {
-  document.getElementById('lockScreen').classList.add('hidden');
-  pinEntry = '';
+    Array(Math.max(0, 4 - pinEntry.length)).fill('<span class="pd"></span>').join('');
 }
 
 async function pinKey(k) {
+  const hint = document.getElementById('lockHint');
   if (k === '⌫') {
     pinEntry = pinEntry.slice(0, -1);
   } else if (pinEntry.length < 6) {
     pinEntry += k;
   }
   renderPinDots();
-
-  if (lockStage === 'totp') {
-    if (pinEntry.length === 6) {
-      if (await verifyTotp(state.settings.totpSecret, pinEntry)) unlock();
-      else lockError('Wrong code, try again', 'Enter the code from your authenticator app');
-    }
-    return;
-  }
-
   if (pinEntry.length >= 4) {
     const hash = await sha256Hex(pinEntry);
     if (hash === state.settings.pinHash) {
-      if (state.settings.totpSecret) {
-        lockStage = 'totp';
-        pinEntry = '';
-        document.getElementById('lockHint').textContent = 'Enter the code from your authenticator app';
-        renderPinDots();
-      } else {
-        unlock();
-      }
+      document.getElementById('lockScreen').classList.add('hidden');
+      pinEntry = '';
     } else if (pinEntry.length === 6) {
-      lockError('Wrong PIN, try again', 'Enter your family PIN');
+      pinEntry = '';
+      renderPinDots();
+      hint.textContent = 'Wrong PIN, try again';
+      hint.classList.add('shake');
+      setTimeout(() => { hint.textContent = 'Enter your family PIN'; hint.classList.remove('shake'); }, 1500);
     }
-  }
-}
-
-// ---------- 2FA (TOTP, RFC 6238) ----------
-
-const B32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-
-function b32encode(bytes) {
-  let bits = 0, value = 0, out = '';
-  for (const b of bytes) {
-    value = (value << 8) | b;
-    bits += 8;
-    while (bits >= 5) { out += B32_ALPHABET[(value >>> (bits - 5)) & 31]; bits -= 5; }
-  }
-  if (bits > 0) out += B32_ALPHABET[(value << (5 - bits)) & 31];
-  return out;
-}
-
-function b32decode(str) {
-  const clean = str.toUpperCase().replace(/[^A-Z2-7]/g, '');
-  let bits = 0, value = 0;
-  const out = [];
-  for (const c of clean) {
-    value = (value << 5) | B32_ALPHABET.indexOf(c);
-    bits += 5;
-    if (bits >= 8) { out.push((value >>> (bits - 8)) & 255); bits -= 8; }
-  }
-  return new Uint8Array(out);
-}
-
-async function totpCode(secretB32, counter) {
-  const key = await crypto.subtle.importKey('raw', b32decode(secretB32),
-    { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
-  const msg = new ArrayBuffer(8);
-  new DataView(msg).setUint32(4, counter);
-  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, msg));
-  const off = sig[sig.length - 1] & 0xf;
-  const code = ((sig[off] & 0x7f) << 24 | sig[off + 1] << 16 | sig[off + 2] << 8 | sig[off + 3]) % 1e6;
-  return String(code).padStart(6, '0');
-}
-
-async function verifyTotp(secretB32, input) {
-  if (!secretB32 || !/^\d{6}$/.test(input)) return false;
-  const counter = Math.floor(Date.now() / 30000);
-  // allow one 30s step of clock drift either way
-  for (const c of [counter, counter - 1, counter + 1]) {
-    if (await totpCode(secretB32, c) === input) return true;
-  }
-  return false;
-}
-
-let pendingTotpSecret = null;
-
-function openTotpModal(existing) {
-  const secret = existing || b32encode(crypto.getRandomValues(new Uint8Array(20)));
-  pendingTotpSecret = existing ? null : secret;
-  document.getElementById('totpModalTitle').textContent = existing ? '2FA setup key' : 'Set up 2FA';
-  document.getElementById('totpSecretBox').textContent = secret.match(/.{1,4}/g).join(' ');
-  document.getElementById('otpauthLink').href =
-    `otpauth://totp/Daycare%20Duty:family?secret=${secret}&issuer=Daycare%20Duty&digits=6&period=30`;
-  document.getElementById('totpForm').classList.toggle('hidden', !!existing);
-  document.getElementById('totpCodeInput').value = '';
-  document.getElementById('totpStatus').textContent = '';
-  document.getElementById('totpStatus').className = 'sync-status';
-  document.getElementById('totpModal').classList.add('open');
-}
-
-async function confirmTotpSetup(e) {
-  e.preventDefault();
-  const code = document.getElementById('totpCodeInput').value.trim();
-  const st = document.getElementById('totpStatus');
-  if (await verifyTotp(pendingTotpSecret, code)) {
-    state.settings.totpSecret = pendingTotpSecret;
-    state.settings.ts = Date.now();
-    pendingTotpSecret = null;
-    saveState();
-    refreshPinButtons();
-    queueSync();
-    document.getElementById('totpModal').classList.remove('open');
-  } else {
-    st.textContent = 'That code didn’t match — check the key was added and try the current code.';
-    st.className = 'sync-status error';
   }
 }
 
@@ -492,6 +378,23 @@ function apiHeaders() {
   };
 }
 
+// Turn a failed GitHub response into a message that says what to fix.
+async function ghError(res) {
+  let detail = '';
+  try { detail = (await res.json()).message || ''; } catch (e) { /* no body */ }
+  switch (res.status) {
+    case 401:
+      return 'Token rejected (401) — it may be wrong, expired, or have a typo. Paste a fresh token.';
+    case 403:
+      return 'Access denied (403) — the token is missing "Contents: Read and write" for this repo.';
+    case 404:
+      return 'Repo not found (404) — check owner/name is exact, and that the token was created by ' +
+             'the account that OWNS the repo (a fine-grained token can\'t reach someone else\'s repo).';
+    default:
+      return `GitHub error ${res.status}${detail ? ': ' + detail : ''}`;
+  }
+}
+
 // Per-slot merge: newest timestamp wins; settings merged as a whole by ts.
 function mergeRemote(remote) {
   if (!remote || typeof remote !== 'object') return;
@@ -534,9 +437,7 @@ async function syncNow(interactive) {
         saveState();
         render();
       } else if (res.status !== 404) {
-        throw new Error(res.status === 401 ? 'Token rejected (401)' :
-          res.status === 403 ? 'Access denied (403) — check token permissions' :
-          res.status === 404 ? 'Repo or file not found' : `GitHub error ${res.status}`);
+        throw new Error(await ghError(res));
       }
       // push merged state
       const body = {
@@ -556,9 +457,7 @@ async function syncNow(interactive) {
         return;
       }
       if (put.status !== 409 && put.status !== 422) {
-        throw new Error(put.status === 401 ? 'Token rejected (401)' :
-          put.status === 403 ? 'Write denied (403) — token needs Contents read/write' :
-          `GitHub error ${put.status}`);
+        throw new Error(await ghError(put));
       }
       // conflict: someone else pushed between our pull and push; loop to re-pull and re-merge
     }
@@ -673,40 +572,12 @@ function init() {
     document.getElementById('pinModal').classList.remove('open');
   });
   document.getElementById('removePinBtn').addEventListener('click', () => {
-    if (state.settings.totpSecret &&
-        !confirm('Removing the PIN also disables 2FA. Continue?')) return;
     state.settings.pinHash = null;
-    state.settings.totpSecret = null;
     state.settings.ts = Date.now();
     saveState();
     refreshPinButtons();
     queueSync();
   });
-
-  // 2FA
-  document.getElementById('enableTotpBtn').addEventListener('click', () => {
-    if (!state.settings.pinHash) {
-      alert('Set a family PIN first — the authenticator code is the second factor.');
-      return;
-    }
-    openTotpModal(null);
-  });
-  document.getElementById('showTotpBtn').addEventListener('click', () => {
-    openTotpModal(state.settings.totpSecret);
-  });
-  document.getElementById('disableTotpBtn').addEventListener('click', () => {
-    if (!confirm('Disable two-factor codes on both phones?')) return;
-    state.settings.totpSecret = null;
-    state.settings.ts = Date.now();
-    saveState();
-    refreshPinButtons();
-    queueSync();
-  });
-  document.getElementById('closeTotpModal').addEventListener('click', () => {
-    pendingTotpSecret = null;
-    document.getElementById('totpModal').classList.remove('open');
-  });
-  document.getElementById('totpForm').addEventListener('submit', confirmTotpSetup);
 
   // Sync
   document.getElementById('connectSyncBtn').addEventListener('click', connectSync);
