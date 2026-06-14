@@ -606,6 +606,14 @@ function init() {
   render();
 
   if ('serviceWorker' in navigator) {
+    // When a freshly deployed service worker takes control, reload once so the
+    // page never runs a stale app.js against newer HTML (or vice versa).
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) return;
+      reloading = true;
+      location.reload();
+    });
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 }
